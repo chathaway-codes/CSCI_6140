@@ -5,12 +5,13 @@ import com.logrit.simulator.ProcessState.PROCESS_STATE;
 public class State {
 	ProcessQueue queue;
 	ProcessQueue sleep_queue;
+	int running_time;
 	
 	public State() {
-		this(new ProcessQueue(PROCESS_STATE.BURSTING), new ProcessQueue(PROCESS_STATE.SLEEPING));
+		this(new ProcessQueue(PROCESS_STATE.BURSTING), new ProcessQueue(PROCESS_STATE.SLEEPING), 0);
 	}
 	
-	public State(ProcessQueue queue, ProcessQueue sleep_queue) {
+	public State(ProcessQueue queue, ProcessQueue sleep_queue, int running_time) {
 		try {
 			this.queue = (ProcessQueue) queue.clone();
 			this.sleep_queue = (ProcessQueue) sleep_queue.clone();
@@ -18,6 +19,7 @@ public class State {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		this.running_time = running_time;
 	}
 	
 	public boolean equals(Object other) {

@@ -45,12 +45,13 @@ public class ProcessQueue implements Cloneable {
 		return t;
 	}
 	
-	public boolean addProcess(Process p, int arrive_at) {
+	public ProcessState addProcess(Process p, int arrive_at) {
 		if(!queue.contains(p)) {
-			queue.add(new ProcessState(p, type, arrive_at));
-			return true;
+			ProcessState new_p = new ProcessState(p, type, arrive_at); 
+			queue.add(new_p);
+			return new_p;
 		}
-		return false;
+		return null;
 	}
 	
 	public boolean removeProcess(Process p) {
@@ -61,6 +62,20 @@ public class ProcessQueue implements Cloneable {
 			}
 		}
 		return false;
+	}
+	
+	/**
+	 * Returns the state of process p in this queue, 
+	 *  or null if it doesn't exist
+	 * @param p
+	 * @return
+	 */
+	public ProcessState findProcessState(Process p) {
+		for(ProcessState q : queue) {
+			if(q.process.equals(p))
+				return q;
+		}
+		return null;
 	}
 	
 	public ArrayList<ProcessState> getProcesses() {

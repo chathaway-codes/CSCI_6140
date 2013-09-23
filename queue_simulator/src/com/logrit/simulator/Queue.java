@@ -9,16 +9,24 @@ public abstract class Queue {
 	protected ProcessQueue sleeping;
 	protected ProcessQueue bursting;
 	protected int running_time;
+	protected int max_cycles;
+	protected int switching_time;
 	
 	public Queue(ProcessQueue bursting) {
-		this(bursting, new ProcessQueue(PROCESS_STATE.SLEEPING), 0, new ArrayList<State>());
+		this(bursting, new ProcessQueue(PROCESS_STATE.SLEEPING), 0, new ArrayList<State>(), 10000, 0);
 	}
 	
 	public Queue(ProcessQueue bursting, ProcessQueue sleeping, int running_time, ArrayList<State> states) {
+		this(bursting, sleeping, running_time, states, 10000, 0);
+	}
+	
+	public Queue(ProcessQueue bursting, ProcessQueue sleeping, int running_time, ArrayList<State> states, int max_cycles, int switching_time) {
 		this.bursting = bursting;
 		this.sleeping = sleeping;
 		this.running_time = running_time;
 		this.states = states;
+		this.max_cycles = max_cycles;
+		this.switching_time = switching_time;
 	}
 	
 	/**
@@ -51,7 +59,7 @@ public abstract class Queue {
 		}
 		processes.remove(p);
 		
-		sleeping.addProcess(p.process, 0);
+		sleeping.addProcess(p.process, 0).time -= p.process.getBurst_time();
 		
 		return p.timeRemaining();
 	}
@@ -61,8 +69,9 @@ public abstract class Queue {
 	 */
 	public void run() {
 		int delta = 0;
+		int counter = 0;
 		ProcessState process = selectProcess();
-		while(!this.complete()) {
+		while(!this.complete() && counter++ < max_cycles) {
 			delta = this.tick(process);
 			this.running_time += delta;
 			this.bursting.updateArriveAt(delta);
@@ -76,6 +85,10 @@ public abstract class Queue {
 				process = selectProcess();
 			}
 		}
+		
+		ProcessStatistics.reset();
+		ProcessStatistics.setTotalTime(running_time);
+		ProcessStatistics.createStats(states);
 	}
 	
 	/**
@@ -85,10 +98,11 @@ public abstract class Queue {
 	 * @return
 	 */
 	protected boolean complete() {
-		State current_state = new State(bursting, sleeping);
+		State current_state = new State(bursting, sleeping, running_time);
 		
 		for(State s : states) {
 			if(s.equals(current_state)) {
+				//states.add(current_state);
 				return true;
 			}
 		}

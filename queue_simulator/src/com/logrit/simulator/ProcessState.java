@@ -17,13 +17,7 @@ public class ProcessState implements Cloneable {
 		this.process = process;
 		this.state = state;
 		this.priority = priority;
-		// Ugly hack
-		// If we are sleeping, add in the sleeping time
-		//  It will eb factored out by the Queue methods later
-		switch(state) {
-		case SLEEPING: this.time = time - process.getBurst_time(); break;
-		default: this.time = time;
-		}
+		this.time = time;
 		this.arrive_at = arrive_at;
 	}
 	

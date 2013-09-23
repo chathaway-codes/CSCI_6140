@@ -32,7 +32,7 @@ public class QueueTests {
 
 		// b: 1 2
 		// s: 
-		states.add(new State(bursting, sleeping));
+		states.add(new State(bursting, sleeping, 0));
 		
 		t = bursting.getProcesses().remove(0);
 		running_time += t.process.getBurst_time();
@@ -40,7 +40,7 @@ public class QueueTests {
 
 		// b: 2
 		// s: 1
-		states.add(new State(bursting, sleeping));
+		states.add(new State(bursting, sleeping, 0));
 		
 		t = bursting.getProcesses().remove(0);
 		running_time += t.process.getBurst_time();
@@ -50,7 +50,7 @@ public class QueueTests {
 
 		// b: 1
 		// s: 2
-		states.add(new State(bursting, sleeping));
+		states.add(new State(bursting, sleeping, 0));
 		
 		t = sleeping.getProcesses().remove(0);
 		running_time += t.process.getSleep_time();
@@ -58,7 +58,7 @@ public class QueueTests {
 
 		// b: 1 2
 		// s: 
-		states.add(new State(bursting, sleeping));
+		states.add(new State(bursting, sleeping, 0));
 		
 		FCFSQueue queue = new FCFSQueue(bursting, sleeping, 0, states);
 		
@@ -83,7 +83,7 @@ public class QueueTests {
 
 		// b: 1 2
 		// s: 
-		states.add(new State(bursting, sleeping));
+		states.add(new State(bursting, sleeping, 0));
 		
 		t = bursting.getProcesses().remove(0);
 		running_time += t.process.getBurst_time();
@@ -91,7 +91,7 @@ public class QueueTests {
 
 		// b: 2
 		// s: 1
-		states.add(new State(bursting, sleeping));
+		states.add(new State(bursting, sleeping, 0));
 		
 		t = bursting.getProcesses().remove(0);
 		running_time += t.process.getBurst_time();
@@ -115,8 +115,11 @@ public class QueueTests {
 
 		ProcessQueue processes = new ProcessQueue();
 		
-		processes.addProcess(Process.makeProcess(8, 4), 0);
-		processes.addProcess(Process.makeProcess(4, 2), 0);
+		Process p1 = Process.makeProcess(8, 4);
+		Process p2 = Process.makeProcess(4, 2);
+		
+		processes.addProcess(p1, 0);
+		processes.addProcess(p2, 0);
 		
 		Queue FCFS = new FCFSQueue(processes);
 		
@@ -130,14 +133,30 @@ public class QueueTests {
 
 		ProcessQueue processes = new ProcessQueue();
 		
-		processes.addProcess(Process.makeProcess(8, 4), 0);
-		processes.addProcess(Process.makeProcess(4, 2), 9);
+		Process p1 = Process.makeProcess(8, 4);
+		Process p2 = Process.makeProcess(4, 2);
+		
+		processes.addProcess(p1, 0);
+		processes.addProcess(p2, 9);
 		
 		Queue FCFS = new FCFSQueue(processes);
 		
 		FCFS.run();
 		
 		assertTrue(FCFS.running_time == 33);
+		
+		// Check the stats!
+		for(ProcessStatistics p : ProcessStatistics.getAllStats()) {
+			if(p.getProcess().equals(p1)) {
+				double response_time = p.getResponseTime();
+				double slowdown = p.getSlowDown(); 
+				assertTrue(response_time == 8.333333333333334);
+				assertTrue(slowdown == 1.375);
+			}
+		}
+		
+		double cpu_utilization = ProcessStatistics.getCPUUtilization();
+		assertTrue(cpu_utilization == 0.9696969696969697);
 	}
 
 }
