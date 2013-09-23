@@ -22,10 +22,10 @@ public abstract class Queue {
 	}
 	
 	/**
-	 * Moves forward the queue to the next event
-	 * @return the delta's between when this was called and when it returns
+	 * Selects the next process to run
+	 * @return
 	 */
-	public abstract int tick();
+	public abstract ProcessState selectProcess();
 	
 	/**
 	 * Updates the sleeping processes, and puts any
@@ -42,17 +42,39 @@ public abstract class Queue {
 			bursting.addProcess(p.process, p.timeRemaining());
 		}
 	}
+
+	public int tick(ProcessState p) {
+		ArrayList<ProcessState> processes = bursting.getProcesses();
+		
+		if(p.arrive_at > 0) {
+			return p.arrive_at;
+		}
+		processes.remove(p);
+		
+		sleeping.addProcess(p.process, 0);
+		
+		return p.timeRemaining();
+	}
 	
 	/**
 	 * Runs through this queue until it is complete...
 	 */
 	public void run() {
 		int delta = 0;
+		ProcessState process = selectProcess();
 		while(!this.complete()) {
-			delta = this.tick();
+			delta = this.tick(process);
 			this.running_time += delta;
 			this.bursting.updateArriveAt(delta);
 			this.populate(delta);
+			// It's possible the tick didn't remove the process,
+			//  but left has us skip forward to where it comes in
+			//   (ie, if it enters the queue later)
+			//  If so, we need to NOT ask for a new process,
+			//   or we would have a premptive queue, which is not what we want
+			if(!bursting.getProcesses().contains(process)) {
+				process = selectProcess();
+			}
 		}
 	}
 	

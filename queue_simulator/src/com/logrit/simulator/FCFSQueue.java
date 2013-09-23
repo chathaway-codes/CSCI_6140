@@ -15,7 +15,7 @@ public class FCFSQueue extends Queue {
 	}
 
 	@Override
-	public int tick() {
+	public ProcessState selectProcess() {
 		// Get the first process in the list
 		ArrayList<ProcessState> processes = bursting.getProcesses();
 		
@@ -25,15 +25,6 @@ public class FCFSQueue extends Queue {
 //			}
 //		});
 		
-		ProcessState p = processes.get(0);
-		
-		if(p.arrive_at > 0) {
-			return p.arrive_at;
-		}
-		processes.remove(0);
-		
-		sleeping.addProcess(p.process, 0);
-		
-		return p.timeRemaining();
+		return processes.get(0);
 	}
 }

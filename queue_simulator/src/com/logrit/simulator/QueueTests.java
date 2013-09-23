@@ -122,7 +122,7 @@ public class QueueTests {
 		
 		FCFS.run();
 		
-		assertTrue(FCFS.running_time == 20);
+		assertTrue(FCFS.running_time == 24);
 	}
 	
 	@Test
