@@ -34,10 +34,12 @@ public abstract class Queue {
 	 */
 	public void populate(int delta) {
 		sleeping.updateTime(delta);
-		ArrayList<Process> new_processes = sleeping.getPastTimeProcesses();
+		ArrayList<ProcessState> new_processes = sleeping.getPastTimeProcesses();
 		
-		for(Process p : new_processes) {
-			bursting.addProcess(p);
+		while(new_processes.size() > 0) {
+			ProcessState p = new_processes.remove(0);
+			sleeping.removeProcess(p.process);
+			bursting.addProcess(p.process, p.timeRemaining());
 		}
 	}
 	
@@ -45,10 +47,12 @@ public abstract class Queue {
 	 * Runs through this queue until it is complete...
 	 */
 	public void run() {
+		int delta = 0;
 		while(!this.complete()) {
-			int delta = this.tick();
-			this.populate(delta);
+			delta = this.tick();
 			this.running_time += delta;
+			this.bursting.updateArriveAt(delta);
+			this.populate(delta);
 		}
 	}
 	
@@ -62,7 +66,7 @@ public abstract class Queue {
 		State current_state = new State(bursting, sleeping);
 		
 		for(State s : states) {
-			if(s == current_state) {
+			if(s.equals(current_state)) {
 				return true;
 			}
 		}

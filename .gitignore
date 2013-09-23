@@ -1,3 +1,4 @@
 workspace/
 eclipse/
 *.class
+*/bin/

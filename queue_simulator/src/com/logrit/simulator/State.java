@@ -11,18 +11,27 @@ public class State {
 	}
 	
 	public State(ProcessQueue queue, ProcessQueue sleep_queue) {
-		this.queue = queue;
-		this.sleep_queue = sleep_queue;
+		try {
+			this.queue = (ProcessQueue) queue.clone();
+			this.sleep_queue = (ProcessQueue) sleep_queue.clone();
+		} catch (CloneNotSupportedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 	
 	public boolean equals(Object other) {
 		if(other instanceof State) {
 			State o = (State)other;
 			boolean ret = true;
-			ret &= o.queue == this.queue;
-			ret &= o.sleep_queue == this.sleep_queue;
+			ret &= o.queue.equals(this.queue);
+			ret &= o.sleep_queue.equals(this.sleep_queue);
 			return ret;
 		}
 		return false;
+	}
+	
+	public String toString() {
+		return "Bursting: " + queue + "\nSleeping: " + sleep_queue;
 	}
 }

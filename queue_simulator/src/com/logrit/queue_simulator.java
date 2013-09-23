@@ -10,8 +10,8 @@ public class queue_simulator {
 	public static void main(String[] args) {
 		ProcessQueue processes = new ProcessQueue();
 		
-		processes.addProcess(Process.makeProcess(8, 4));
-		processes.addProcess(Process.makeProcess(4, 2));
+		processes.addProcess(Process.makeProcess(8, 4), 0);
+		processes.addProcess(Process.makeProcess(4, 2), 0);
 		
 		Queue FCFS = new FCFSQueue(processes);
 		
