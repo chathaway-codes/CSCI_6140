@@ -34,7 +34,7 @@ public class Process {
 	
 	private static int last_pid = 0;
 	public static Process makeProcess(int burst_time, int sleep_time) {
-		return new Process(++last_pid, burst_time, sleep_time);
+		return new Process(last_pid++, burst_time, sleep_time);
 	}
 	
 	/**

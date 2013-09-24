@@ -56,7 +56,7 @@ public class RRQueue extends Queue {
 	}
 	
 	public String toString() {
-		return "Round Robin Queue";
+		return "Round Robin Queue (quanta: " + quanta + ")";
 	}
 
 }
