@@ -29,6 +29,10 @@ public class ProcessState implements Cloneable {
 		arrive_at -= delta;
 	}
 	
+	public Process getProcess() {
+		return this.process;
+	}
+	
 	public int timeRemaining() {
 		switch(state) {
 		case SLEEPING:

@@ -31,5 +31,9 @@ public class HRRNQueue extends Queue {
 		
 		return processes.get(0);
 	}
+	
+	public String toString() {
+		return "Highest response ratio next Queue";
+	}
 
 }

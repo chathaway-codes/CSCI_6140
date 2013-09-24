@@ -36,4 +36,13 @@ public class Process {
 	public static Process makeProcess(int burst_time, int sleep_time) {
 		return new Process(++last_pid, burst_time, sleep_time);
 	}
+	
+	/**
+	 * Be careful when calling this!
+	 * If you ever interact with a Process from another set,
+	 *   they may appear to be equal.
+	 */
+	public static void resetPid() {
+		last_pid = 0;
+	}
 }

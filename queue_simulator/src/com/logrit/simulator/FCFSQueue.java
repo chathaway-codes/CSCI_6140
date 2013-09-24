@@ -27,4 +27,8 @@ public class FCFSQueue extends Queue {
 		
 		return processes.get(0);
 	}
+	
+	public String toString() {
+		return "First Come First Serve Queue";
+	}
 }

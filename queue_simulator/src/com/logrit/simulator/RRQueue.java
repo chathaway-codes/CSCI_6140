@@ -6,6 +6,12 @@ public class RRQueue extends Queue {
 	
 	int quanta;
 	
+	public static int default_quanta = 4;
+	
+	public RRQueue(ProcessQueue bursting) {
+		this(bursting, default_quanta);
+	}
+	
 	public RRQueue(ProcessQueue bursting, int quanta) {
 		super(bursting);
 		this.quanta = quanta;
@@ -47,6 +53,10 @@ public class RRQueue extends Queue {
 	 */
 	public ProcessState selectProcess() {
 		return null;
+	}
+	
+	public String toString() {
+		return "Round Robin Queue";
 	}
 
 }

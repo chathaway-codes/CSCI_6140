@@ -31,5 +31,9 @@ public class SJFQueue extends Queue {
 		
 		return processes.get(0);
 	}
+	
+	public String toString() {
+		return "Shortest Job First Queue";
+	}
 
 }
