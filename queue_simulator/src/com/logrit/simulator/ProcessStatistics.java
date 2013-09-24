@@ -70,7 +70,7 @@ public class ProcessStatistics {
 		for(ProcessStatistics p : _statistics.values()) {
 			total += p.total_execution_time;
 		}
-		return ((double)total)/_total_time;
+		return (total/2)/_total_time;
 	}
 	
 	public static Collection<ProcessStatistics> getAllStats() {
@@ -105,6 +105,8 @@ public class ProcessStatistics {
 			for(ProcessState p : s.queue.getProcesses()) {
 				ProcessState prev_state = prev.queue.findProcessState(p.process);
 				if(prev_state != null) {
+					// Make sure to NOT cummulate time from the previous waiting
+					getStatistics(p.process).addWaitTime(prev_state.arrive_at);
 					getStatistics(p.process).addWaitTime(-1 * p.arrive_at);
 				}
 			}

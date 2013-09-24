@@ -9,6 +9,7 @@ import com.logrit.simulator.Process;
 import com.logrit.simulator.ProcessQueue;
 import com.logrit.simulator.ProcessStatistics;
 import com.logrit.simulator.Queue;
+import com.logrit.simulator.RRQueue;
 import com.logrit.simulator.SJFQueue;
 
 public class queue_simulator {
@@ -48,6 +49,7 @@ public class queue_simulator {
 		Queue.CONTEXT_SWITCHING_TIME = 1;
 		run(9, new SJFQueue(null));
 		run(9, new HRRNQueue(null));
+		run(9, new RRQueue(null));
 	}
 
 }

@@ -24,8 +24,8 @@ public class HRRNQueue extends Queue {
 				int pB = 1 + (-1 * b.arrive_at)/b.process.getBurst_time();
 				
 				if(pA == pB)
-					return a.process.getBurst_time() - b.process.getBurst_time();
-				return pA - pB;
+					return b.process.getBurst_time() - a.process.getBurst_time();
+				return pB - pA;
 			}
 		});
 		
