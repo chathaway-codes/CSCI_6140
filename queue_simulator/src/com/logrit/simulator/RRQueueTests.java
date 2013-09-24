@@ -65,4 +65,23 @@ public class RRQueueTests {
 		double cpu_utilization = ProcessStatistics.getCPUUtilization();
 		//assertTrue(cpu_utilization == 1);
 	}
+	
+	@Test
+	public void testTickTimeWithContextSwitch() {
+		Queue.CONTEXT_SWITCHING_TIME = 1;
+
+		ProcessQueue processes = new ProcessQueue();
+		
+		Process p1 = Process.makeProcess(8, 4);
+		Process p2 = Process.makeProcess(4, 2);
+
+		processes.addProcess(p1, 0);
+		processes.addProcess(p2, 0);
+		
+		Queue queue = new RRQueue(processes, 8);		
+		queue.run();
+		
+		assertTrue(queue.running_time == 28);
+		Queue.CONTEXT_SWITCHING_TIME = 0;
+	}
 }

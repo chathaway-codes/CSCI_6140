@@ -12,12 +12,14 @@ public abstract class Queue {
 	protected int max_cycles;
 	protected int switching_time;
 	
+	public static int CONTEXT_SWITCHING_TIME = 0;
+	
 	public Queue(ProcessQueue bursting) {
-		this(bursting, new ProcessQueue(PROCESS_STATE.SLEEPING), 0, new ArrayList<State>(), 10000, 0);
+		this(bursting, new ProcessQueue(PROCESS_STATE.SLEEPING), 0, new ArrayList<State>(), 10000, CONTEXT_SWITCHING_TIME);
 	}
 	
 	public Queue(ProcessQueue bursting, ProcessQueue sleeping, int running_time, ArrayList<State> states) {
-		this(bursting, sleeping, running_time, states, 10000, 0);
+		this(bursting, sleeping, running_time, states, 10000, CONTEXT_SWITCHING_TIME);
 	}
 	
 	public Queue(ProcessQueue bursting, ProcessQueue sleeping, int running_time, ArrayList<State> states, int max_cycles, int switching_time) {
@@ -83,6 +85,7 @@ public abstract class Queue {
 			//   or we would have a premptive queue, which is not what we want
 			if(!bursting.getProcesses().contains(process)) {
 				process = selectProcess();
+				running_time += this.switching_time;
 			}
 		}
 		
@@ -102,7 +105,7 @@ public abstract class Queue {
 		
 		for(State s : states) {
 			if(s.equals(current_state)) {
-				//states.add(current_state);
+				states.add(current_state);
 				return true;
 			}
 		}
