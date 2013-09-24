@@ -48,8 +48,25 @@ public class queue_simulator {
 		// Using 1ms switch time
 		Queue.CONTEXT_SWITCHING_TIME = 1;
 		run(9, new SJFQueue(null));
+		run(19, new SJFQueue(null));
+		run(39, new SJFQueue(null));
 		run(9, new HRRNQueue(null));
+		run(19, new HRRNQueue(null));
+		run(39, new HRRNQueue(null));
 		run(9, new RRQueue(null));
+		run(19, new RRQueue(null));
+		run(39, new RRQueue(null));
+		
+		System.out.println("** BONUS ** RR with different Quanta");
+		RRQueue.default_quanta = 2;
+		run(9, new RRQueue(null));
+		run(19, new RRQueue(null));
+		run(39, new RRQueue(null));
+
+		RRQueue.default_quanta = 7;
+		run(9, new RRQueue(null));
+		run(19, new RRQueue(null));
+		run(39, new RRQueue(null));
 	}
 
 }

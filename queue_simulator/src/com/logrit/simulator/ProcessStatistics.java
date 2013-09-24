@@ -46,7 +46,8 @@ public class ProcessStatistics {
 	}
 	
 	private static HashMap<Process, ProcessStatistics> _statistics = new HashMap<Process, ProcessStatistics>();
-	private static int _total_time = 0;
+	public static int _total_time = 0;
+	public static int running_time = 0;
 	
 	public static ProcessStatistics getStatistics(Process p) {
 		if(!_statistics.containsKey(p)) {
@@ -65,12 +66,7 @@ public class ProcessStatistics {
 	}
 	
 	public static double getCPUUtilization() {
-		// Sum the total time processes spent on the stack
-		int total = 0;
-		for(ProcessStatistics p : _statistics.values()) {
-			total += p.total_execution_time;
-		}
-		return (total/2)/_total_time;
+		return ((double)running_time)/_total_time;
 	}
 	
 	public static Collection<ProcessStatistics> getAllStats() {
@@ -80,6 +76,7 @@ public class ProcessStatistics {
 	public static void reset() {
 		_statistics = new HashMap<Process, ProcessStatistics>();
 		_total_time = 0;
+		running_time = 0;
 	}
 	
 	public static void createStats(ArrayList<State> states) {

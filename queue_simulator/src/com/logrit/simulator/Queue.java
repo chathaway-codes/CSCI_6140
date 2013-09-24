@@ -1,6 +1,8 @@
 package com.logrit.simulator;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 
 import com.logrit.simulator.ProcessState.PROCESS_STATE;
 
@@ -70,28 +72,62 @@ public abstract class Queue {
 	 * Runs through this queue until it is complete...
 	 */
 	public void run() {
-		int delta = 0;
 		int counter = 0;
 		ProcessState process = selectProcess();
+		ProcessStatistics.reset();
 		while(!this.complete() && counter++ < max_cycles) {
-			delta = this.tick(process);
-			this.running_time += delta;
-			this.bursting.updateArriveAt(delta);
-			this.populate(delta);
+			advance(process);
 			// It's possible the tick didn't remove the process,
 			//  but left has us skip forward to where it comes in
 			//   (ie, if it enters the queue later)
 			//  If so, we need to NOT ask for a new process,
 			//   or we would have a premptive queue, which is not what we want
 			if(!bursting.getProcesses().contains(process)) {
+				// If there are no processes in the burst queue, we need to move forward in time
+				if(bursting.getProcesses().size() == 0) {
+					pop_next_sleeping();
+				}
 				process = selectProcess();
 				running_time += this.switching_time;
 			}
 		}
 		
-		ProcessStatistics.reset();
 		ProcessStatistics.setTotalTime(running_time);
 		ProcessStatistics.createStats(states);
+	}
+	
+	private void advance(ProcessState process) {
+		int delta = this.tick(process);
+		this.running_time += delta;
+		this.bursting.updateArriveAt(delta);
+		this.populate(delta);
+		ProcessStatistics.running_time += delta;
+	}
+	
+	private int pop_next_sleeping() {
+		ProcessQueue sleeping_pop = null;
+		try {
+			sleeping_pop = (ProcessQueue) sleeping.clone();
+		} catch (CloneNotSupportedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		Collections.sort(sleeping_pop.getProcesses(), new Comparator<ProcessState>() {
+			public int compare(ProcessState a, ProcessState b) {
+				return b.timeRemaining() - a.timeRemaining();
+			}
+		});
+		
+		ProcessState p = sleeping_pop.getProcesses().get(0);
+		
+		int delta = p.timeRemaining();
+
+		this.running_time += delta;
+		this.bursting.updateArriveAt(delta);
+		this.populate(delta);
+		
+		return 0;
 	}
 	
 	/**
