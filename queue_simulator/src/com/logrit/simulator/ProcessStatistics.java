@@ -107,6 +107,7 @@ public class ProcessStatistics {
 					getStatistics(p.process).addWaitTime(-1 * p.arrive_at);
 				}
 			}
+      prev = s;
 		}
 	}
 }
