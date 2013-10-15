@@ -75,7 +75,10 @@ public abstract class Queue {
 		int counter = 0;
 		ProcessState process = selectProcess();
 		ProcessStatistics.reset();
-		while(!this.complete() && counter++ < max_cycles) {
+		//while(!this.complete() && counter++ < max_cycles) {
+		while(counter++ < max_cycles) {
+			// Just go for lots of cycles... because
+			this.complete(); 
 			advance(process);
 			// It's possible the tick didn't remove the process,
 			//  but left has us skip forward to where it comes in
