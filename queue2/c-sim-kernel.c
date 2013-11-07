@@ -8,25 +8,36 @@
 #define UPPER_MASK 0x80000000UL /* most significant w-r bits */
 #define LOWER_MASK 0x7fffffffUL /* least significant r bits */
 
-/***** Define simulation *****/
+/***** Define simulation ****/
 // MPL = Multiprogramming Level
-#define MS 1
-// Number of processes
-#define NS 1
+#define MS 20
+// Number of terminals
+#define NS 30
 // CPU service time
-#define TCPU 0.4
+//  CPU:tCP U= 40ms, exponential distribution
+#define TCPU 0.04
 // Time quantum for RR
-#define TQuantum 0.4
+//  The time quantum for all processes,tq, is 100 ms
+#define TQuantum 0.1
 // Time between disk requests
-#define TInterRequest 0.04
+#define TInterRequest 0.016
 // Disk service time
 #define TDiskService 0.06
 // Time for a monitor to think
-#define TThink 8
+//  Terminal(thinking time):tt= 5sec, exponential distribution
+#define TThink 5
 // Time total default setting
 #define TTS 1000000
+#define PROBCacheMiss 0.02
 
-/************ Enums *****************/
+// Total system memory
+#define TOTAL_MEM 8192
+// OS required RAM
+#define OS_RAM 512
+// Available ram
+#define AVAIL_RAM (TOTAL_MEM-OS_RAM)
+
+/************ Enums ****************/
 // Queue
 #define MemoryQueue 0
 #define CPUQueue 1
@@ -42,7 +53,9 @@
 
 // Devices
 #define CPU 0
-#define DISK 1
+#define NUM_CPU 4
+#define DISK NUM_CPU+CPU
+#define NUM_DISK 1
 #define EMPTY -1
 
 // Priorities
@@ -52,6 +65,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 
 /* for random number generator */
 static unsigned long mt[Nrnd];     /* the array for the state vector  */
@@ -60,7 +74,8 @@ static int mti=Nrnd+1;             /* mti==Nrnd+1 means mt[Nrnd] is not initiali
 /* simulator data structurs */
 // Note that anywhere NS is used, that array uses the 
 //  PID to identify a process
-struct Task { double tcpu,tquantum,tinterrequest,start; } task[NS];  /**** Job list       ****/
+// time on cpu, time quantim, time between disk io, start
+struct Task { double tcpu,tquantum,tinterrequest,start; int cpu,disk; } task[NS];  /**** Job list       ****/
 struct Events {                              /**** Event list           ****/
 	int head, tail, q;
 	double time[NS]; 
@@ -75,7 +90,7 @@ struct Queue {  /**** Queues: 0 - memory queue, 1 - CPU queue, 2 - Disk queue*/
 struct Device {                              /***  Devices: 0 - CPU, 1 - Disk*/
 	int busy;
 	double tch, tser;
-} server[2];
+} server[NUM_DISK + NUM_CPU];
 
 int inmemory=0, finished_tasks=0, MPL=MS, N=NS; /* inmemory, actual number of tasks in memory ****/
 double sum_response_time=0.0, TTotal=TTS;
@@ -90,6 +105,8 @@ int remove_from_queue(int, double);
 unsigned long genrand_int32(void);
 double genrand_real2(void);
 
+/* create task helper function */
+void create_task(int process, double time);
 
 /********************************************************************/
 /********************** File sim.c **********************************/
@@ -158,22 +175,28 @@ void Process_RequestMemory(int process, double time)
 void Process_RequestCPU(int process, double time)
 {
   double release_time;
-
-/**** Place in CPU queue if server is busy                       ****/
-  if (server[CPU].busy) place_in_queue(process,time,CPUQueue);
-  else {
-    server[CPU].busy=1;
-    server[CPU].tch=time;
-/**** Find the time of leaving CPU                               ****/
-    if (task[process].tcpu<task[process].tquantum) release_time=task[process].tcpu;
-    else release_time=task[process].tquantum;
-    if (release_time>task[process].tinterrequest) release_time=task[process].tinterrequest;
-/**** Update the process times and create Process_ReleaseCPU event           ****/
-    task[process].tcpu-=release_time;
-    task[process].tinterrequest-=release_time;
-    task[process].tquantum-=release_time;
-    create_event(process, ReleaseCPU, time+release_time, LowPriority);
+  int i=0;
+  
+  for(i=CPU; i < CPU + NUM_CPU; i++) {
+    if(!server[i].busy) {
+      server[i].busy=1;
+      server[i].tch=time;
+      task[process].cpu = i;
+  /**** Find the time of leaving CPU                               ****/
+      if (task[process].tcpu<task[process].tquantum) release_time=task[process].tcpu;
+      else release_time=task[process].tquantum;
+      if (release_time>task[process].tinterrequest) release_time=task[process].tinterrequest;
+  /**** Update the process times and create Process_ReleaseCPU event           ****/
+      task[process].tcpu-=release_time;
+      task[process].tinterrequest-=release_time;
+      task[process].tquantum-=release_time;
+      create_event(process, ReleaseCPU, time+release_time, LowPriority);
+      return;
+    }
   }
+  
+  // Else, put in queue
+  place_in_queue(process,time,CPUQueue);
 }
 
 void Process_ReleaseCPU(int process, double time)
@@ -181,8 +204,8 @@ void Process_ReleaseCPU(int process, double time)
   int queue_head;
 
 /**** Update CPU statistics                                            ****/
-  server[CPU].busy=0;
-  server[CPU].tser+=(time-server[CPU].tch);
+  server[task[process].cpu].busy=0;
+  server[task[process].cpu].tser+=(time-server[task[process].cpu].tch);
   queue_head=remove_from_queue(CPUQueue, time);           /* remove head of CPU queue ****/
   if (queue_head!=EMPTY) create_event(queue_head, RequestCPU, time, HighPriority);
 /**** Depending on reason for leaving CPU, select the next event       ****/
@@ -190,10 +213,27 @@ void Process_ReleaseCPU(int process, double time)
     sum_response_time+=time-task[process].start;
     finished_tasks++;
 /**** Create a new task                                          ****/
-    task[process].tcpu=random_exponential(TCPU);
+    /*task[process].tcpu=random_exponential(TCPU);
+    
+    // Account for CPU time spent dealing with page faults
+    // First, how many instructions get executed?
+    //  tasks_per_second = 1/.00000001;
+    int num_instructions = task[process].tcpu * 100000000;
+    // What is the probability of a page fault?
+    /// This can be optimized by using some combination of << >> operators
+    double prob_page_fault = pow(2, -1*( (AVAIL_RAM/MPL)/160 + 17));
+    // Total number of page faults
+    int total_num_page_faults = num_instructions * (prob_page_fault);
+    // Each page fault adds a total of 51 machine cycles, including
+    //  computation time (so exclude that 1 cycle)
+    num_instructions += total_num_page_faults * 50;
+    // And recalculate time to run
+    task[process].tcpu = num_instructions/100000000.0;
+    
     task[process].tquantum  =   TQuantum;
     task[process].tinterrequest = random_exponential(TInterRequest);
-    task[process].start=time+random_exponential(TThink);
+    task[process].start=time+random_exponential(TThink);*/
+    create_task(process, time+random_exponential(TThink));
     create_event(process, RequestMemory, task[process].start, LowPriority);
     inmemory--;
     queue_head=remove_from_queue(MemoryQueue, time);
@@ -212,20 +252,25 @@ void Process_ReleaseCPU(int process, double time)
 void Process_RequestDisk(int process, double time)
 {
 /**** If Disk busy go to Disk queue, if not create Process_ReleaseDisk event    ****/
-  if (server[DISK].busy) place_in_queue(process,time,DiskQueue);
-  else {
-    server[DISK].busy=1;
-    server[DISK].tch=time;
-    create_event(process, ReleaseDisk, time+random_exponential(TDiskService), LowPriority);
+  int i=0;
+  for(i=DISK; i < DISK + NUM_DISK; i++) {
+      if(!server[i].busy) {
+      task[process].disk = i;
+      server[DISK].busy=1;
+      server[DISK].tch=time;
+      create_event(process, ReleaseDisk, time+random_exponential(TDiskService), LowPriority);
+      return;
+    }
   }
+  place_in_queue(process,time,DiskQueue);
 }
 
 void Process_ReleaseDisk(int process, double time)
 {
   int queue_head;
 /**** Update statistics for Disk and create Process_RequestCPU event         ****/
-  server[DISK].busy=0;
-  server[DISK].tser+=(time-server[DISK].tch);
+  server[task[process].disk].busy=0;
+  server[task[process].disk].tser+=(time-server[DISK].tch);
   queue_head=remove_from_queue(DiskQueue, time);
   if (queue_head!=EMPTY) 
     create_event(queue_head, RequestDisk, time, HighPriority);
@@ -306,16 +351,13 @@ void init()
     queue[i].ws=queue[i].ts=0.0;
     queue[i].tch=0;
   }
-  for(i=0;i<2;i++) {
+  for(i=0;i<NUM_DISK + NUM_CPU;i++) {
     server[i].busy=0;
     server[i].tch=server[i].tser=0.0;
   }
   for(i=0;i<N;i++) {
 /**** Create a new task                                          ****/
-    task[i].tcpu=random_exponential(TCPU);
-    task[i].tquantum  =   TQuantum;
-    task[i].tinterrequest = random_exponential(TInterRequest);
-    task[i].start=random_exponential(TThink);
+    create_task(i, random_exponential(TThink));
     create_event(i, RequestMemory, task[i].start, LowPriority);
   }
 }
@@ -323,14 +365,29 @@ void init()
 void stats()
 {
 /**** Update utilizations                                          ****/
-  if (server[CPU].busy==1) server[CPU].tser+=(TTotal-server[CPU].tch);
-  if (server[DISK].busy==1) server[DISK].tser+=(TTotal-server[DISK].tch);
+  int i=0;
+  for(i=0; i < NUM_CPU + NUM_DISK; i++) {
+    if(server[i].busy==1)
+      server[i].tser+=(TTotal-server[i].tch);
+  }
+  //if (server[CPU].busy==1) server[CPU].tser+=(TTotal-server[CPU].tch);
+  //if (server[DISK].busy==1) server[DISK].tser+=(TTotal-server[DISK].tch);
 
 /**** Print statistics                                             ****/
 
   printf("System definitions: N %2d MPL %2d TTotal %6.0f\n",N, MPL, TTotal);
+  double total_cpu_util = 0.0;
+  for(i=CPU; i < CPU + NUM_CPU; i++) {
+    total_cpu_util += 100.0*server[i].tser/TTotal;
+    printf("CPU%d: %5.2f\n", i-CPU, 100.0*server[i].tser/TTotal);
+  }
+  double total_disk_util = 0.0;
+  for(i=DISK; i < DISK + NUM_DISK; i++) {
+    total_disk_util += 100.0*server[i].tser/TTotal;
+    printf("DISK%d: %5.2f\n", i-DISK, 100.0*server[i].tser/TTotal);
+  }
   printf("utilizations are: CPU %5.2f Disk %5.2f\n", 
-	 100.0*server[0].tser/TTotal, 100.0*server[1].tser/TTotal);
+	 total_cpu_util/NUM_CPU, total_disk_util/NUM_DISK);
   printf("mean waiting time in qe %5.2f qCPU %5.2f qDisk %5.2f\n", 
 	 queue[MemoryQueue].ws?queue[MemoryQueue].ws/(queue[MemoryQueue].n-queue[MemoryQueue].q):0.0,
 	 queue[CPUQueue].ws?queue[CPUQueue].ws/(queue[CPUQueue].n-queue[CPUQueue].q):0.0,
@@ -344,7 +401,9 @@ void stats()
 	 queue[CPUQueue].n-queue[CPUQueue].q, 
 	 queue[DiskQueue].n-queue[DiskQueue].q);
   printf("average response time   %5.2f processes finished %5d\n",
-	 sum_response_time/finished_tasks, finished_tasks); 
+	 sum_response_time/finished_tasks, finished_tasks);
+
+  printf("sum_response_time: %lf\n", sum_response_time);
 }
 
 /*------------------------------ Random Number Generator --------------------------*/
@@ -397,3 +456,33 @@ double random_exponential (double y) {
   return -y*log(genrand_real2());
 }
 
+void create_task(int process, double start_time) {
+  task[process].tcpu=random_exponential(TCPU);
+  double original_tcpu = task[process].tcpu;
+    
+  // Account for CPU time spent dealing with page faults
+  // First, how many instructions get executed?
+  //  tasks_per_second = 1/.00000001;
+  double num_instructions = task[process].tcpu * 100000000;
+  // What is the probability of a page fault?
+  /// This can be optimized by using some combination of << >> operators
+  double prob_page_fault = pow(2, -1*( (AVAIL_RAM/MPL)/160 + 17));
+  // Total number of page faults
+  //double total_num_page_faults = num_instructions * (prob_page_fault);
+  //! A page fault requires a disk access
+  //  A cache miss is what we are looking for
+  double total_number_cache_misses = num_instructions * (PROBCacheMiss);
+  // Each cache miss adds a total of 51 machine cycles, including
+  //  computation time (so exclude that 1 cycle)
+  num_instructions += total_number_cache_misses * 50;
+  // And recalculate time to run
+  task[process].tcpu = num_instructions/100000000.0;
+  //printf("Number of cycles: %d\n", num_instructions);
+  //printf("Prob. of page fault: %f\n", prob_page_fault);
+  //printf("Total page faults for process %d: %d\n", process, total_num_page_faults);
+  assert(task[process].tcpu >= original_tcpu);
+  
+  task[process].tquantum  =   TQuantum;
+  task[process].tinterrequest = random_exponential(TInterRequest);
+  task[process].start=start_time;
+}
