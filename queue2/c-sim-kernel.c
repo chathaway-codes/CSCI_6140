@@ -8,6 +8,8 @@
 #define UPPER_MASK 0x80000000UL /* most significant w-r bits */
 #define LOWER_MASK 0x7fffffffUL /* least significant r bits */
 
+#define debug 1
+
 /***** Define simulation ****/
 // MPL = Multiprogramming Level
 #define MS 20
@@ -52,8 +54,7 @@
 #define MemoryQueue 0
 #define CPUQueue 1
 #define DiskQueue 2
-#define WaitQueue 3
-#define TotQueues 4
+#define TotQueues 3
 
 // Events
 #define RequestMemory 0
@@ -145,7 +146,8 @@ void main(int argc, char *argv[])
   if (argc>3) sscanf(argv[3], "%lf", &TTotal);
 
   init();
-  int counter=0;
+  int counter=0, i=0, prev_elist_head=elist.head;
+  double prev_global_time=global_time;
 /***** Main simulation loop *****/
   while (global_time<=TTotal) {
 /***** Select the event e from the head of event list *****/
@@ -156,7 +158,7 @@ void main(int argc, char *argv[])
     //  at the end
     elist.head=(elist.head+1)%N;
     elist.q--;
-    if(counter++ % 10 == 0)
+    if(counter++ % 100 == 0)
       printf("time: %.50lf\n", global_time);
     if(process < NPPStart)
       printf("Running %d\n", process);
@@ -174,6 +176,17 @@ void main(int argc, char *argv[])
       break;
     case WaitSync: Process_WaitSync(process, global_time);
     }
+    assert(prev_global_time <= global_time);
+    prev_global_time = global_time;
+    assert(prev_elist_head != elist.head);
+    prev_elist_head = elist.head;
+
+    // These taks should NEVER be done!
+    for(i=NPPStart; i<NPP+NPPStart; i++) {
+      task[i].tcpu=TTS;
+    }
+
+
   }
   stats();
 }
@@ -184,6 +197,9 @@ void main(int argc, char *argv[])
 
 void Process_RequestMemory(int process, double time)
 {
+#if debug
+    printf("Process_RequestMemory %d %.20lf\n", process, time);
+#endif
 /**** Create a Process_RequestCPU event or place a task in memory queue      ****/
   if (inmemory<MPL) {
     inmemory++;
@@ -194,6 +210,9 @@ void Process_RequestMemory(int process, double time)
 
 void Process_RequestCPU(int process, double time)
 {
+#if debug
+    printf("Process_RequestCPU %d %.20lf\n", process, time);
+#endif
   double release_time;
   int i=0;
   
@@ -209,7 +228,7 @@ void Process_RequestCPU(int process, double time)
       if (release_time>task[process].tpgf) release_time=task[process].tpgf;
 
       // If this is a PP, account for the sync point
-      if (process >= NPPStart && process < NPPStart + NPP && release_time>task[process].tbs) release_time=task[process].tbs;
+      if (process >= NPPStart && release_time>task[process].tbs) release_time=task[process].tbs;
 
   /**** Update the process times and create Process_ReleaseCPU event           ****/
       task[process].tcpu-=release_time;
@@ -218,7 +237,9 @@ void Process_RequestCPU(int process, double time)
       task[process].tbs-=release_time;
       // Do NOT decrement tpgf because it is reoccuring, therefore
       //  we do not want it to change when the process comes back on stack
-      create_event(process, ReleaseCPU, time+release_time, LowPriority);
+      // If release_time == 0... something is wrong. Don't create the event
+      if(release_time > 0.00000000)
+          create_event(process, ReleaseCPU, time+release_time, LowPriority);
       return;
     }
   }
@@ -229,6 +250,9 @@ void Process_RequestCPU(int process, double time)
 
 void Process_ReleaseCPU(int process, double time)
 {
+#if debug
+    printf("Process_ReleaseCPU %d %.20lf\n", process, time);
+#endif
   int queue_head;
 
 /**** Update CPU statistics                                            ****/
@@ -237,7 +261,7 @@ void Process_ReleaseCPU(int process, double time)
   queue_head=remove_from_queue(CPUQueue, time);           /* remove head of CPU queue ****/
   if (queue_head!=EMPTY) create_event(queue_head, RequestCPU, time, HighPriority);
 /**** Depending on reason for leaving CPU, select the next event       ****/
-  if (task[process].tcpu==0) {             /* task termination         ****/
+  if (process < NPPStart && task[process].tcpu==0) {             /* task termination         ****/
     sum_response_time+=time-task[process].start;
     finished_tasks++;
 /**** Create a new task                                          ****/
@@ -245,13 +269,16 @@ void Process_ReleaseCPU(int process, double time)
     create_event(process, RequestMemory, task[process].start, LowPriority);
     inmemory--;
     queue_head=remove_from_queue(MemoryQueue, time);
-    if (queue_head!=EMPTY) create_event(queue_head, RequestMemory, time, HighPriority);
+    if (queue_head!=EMPTY) {
+        create_event(queue_head, RequestMemory, time, HighPriority);
+        //elist.head=(elist.head+1)%N;
+    }
   }
   else if (task[process].tquantum==0) {          /* time slice interrupt     ****/
     task[process].tquantum=TQuantum;
     create_event(process, RequestCPU, time, LowPriority);
   } else if (task[process].tbs==0) {
-    //create_event(process, WaitSync, time, LowPriority);
+    create_event(process, WaitSync, time, LowPriority);
     return;
   }
   else {                             /* disk access interrupt          ****/
@@ -262,13 +289,16 @@ void Process_ReleaseCPU(int process, double time)
 
 void Process_RequestDisk(int process, double time)
 {
+#if debug
+    printf("Process_RequestDisk %d %.20lf\n", process, time);
+#endif
 /**** If Disk busy go to Disk queue, if not create Process_ReleaseDisk event    ****/
   int i=0;
   for(i=DISK; i < DISK + NUM_DISK; i++) {
-      if(!server[i].busy) {
+    if(!server[i].busy) {
       task[process].disk = i;
-      server[DISK].busy=1;
-      server[DISK].tch=time;
+      server[i].busy=1;
+      server[i].tch=time;
       create_event(process, ReleaseDisk, time+random_exponential(TDiskService), LowPriority);
       return;
     }
@@ -278,18 +308,26 @@ void Process_RequestDisk(int process, double time)
 
 void Process_ReleaseDisk(int process, double time)
 {
+#if debug
+    printf("Process_ReleaseDisk %d %.20lf\n", process, time);
+#endif
   int queue_head;
 /**** Update statistics for Disk and create Process_RequestCPU event         ****/
   server[task[process].disk].busy=0;
-  server[task[process].disk].tser+=(time-server[DISK].tch);
+  server[task[process].disk].tser+=(time-server[task[process].disk].tch);
   queue_head=remove_from_queue(DiskQueue, time);
-  if (queue_head!=EMPTY) 
+  if (queue_head!=EMPTY && queue_head != process)  {
     create_event(queue_head, RequestDisk, time, HighPriority);
+    // Update the elist head
+    elist.head=(elist.head+1)%N;
+  }
   create_event(process, RequestCPU, time, LowPriority);
 }
 
 void Process_WaitSync(int process, double time) {
-  printf("Waiting: %d\n", process);
+#if debug
+    printf("Process_WaitSync %d %.20lf\n", process, time);
+#endif
   task[process].wait = 1;
   finished_pp_tasks+=1;
   int i=0;
@@ -349,6 +387,16 @@ void place_in_queue(int process, double time, int current_queue)
 
 void create_event(int process, int event, double time, int priority)
 {
+#if debug
+    printf("create_event %d %s %lf %d\n", process, 
+        (event == RequestMemory ? "RequestMemory" : 
+        (event == RequestCPU ? "RequestCPU" :
+        (event == ReleaseCPU ? "ReleaseCPU" :
+        (event == RequestDisk ? "RequestDisk" :
+        (event == ReleaseDisk ? "ReleaseDisk" :
+        (event == WaitSync ? "WaitSync" : "No idea")))))),
+        time, priority);
+#endif
   int i, notdone=1, place=elist.tail;
   
 /**** Move all more futuristic tasks by one position                ****/
