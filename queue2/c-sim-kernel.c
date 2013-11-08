@@ -121,6 +121,7 @@ double genrand_real2(void);
 
 /* create task helper function */
 void create_task(int process, double time);
+double calc_next_page_fault(int process);
 
 /********************************************************************/
 /********************** File sim.c **********************************/
@@ -235,11 +236,9 @@ void Process_RequestCPU(int process, double time)
       task[process].tinterrequest-=release_time;
       task[process].tquantum-=release_time;
       task[process].tbs-=release_time;
-      // Do NOT decrement tpgf because it is reoccuring, therefore
-      //  we do not want it to change when the process comes back on stack
-      // If release_time == 0... something is wrong. Don't create the event
-      if(release_time > 0.00000000)
-          create_event(process, ReleaseCPU, time+release_time, LowPriority);
+      task[process].tpgf-=release_time;
+
+      create_event(process, ReleaseCPU, time+release_time, LowPriority);
       return;
     }
   }
@@ -282,7 +281,10 @@ void Process_ReleaseCPU(int process, double time)
     return;
   }
   else {                             /* disk access interrupt          ****/
-    task[process].tinterrequest=random_exponential(TInterRequest);
+    if(task[process].tpgf == 0)
+        calc_next_page_fault(process);
+    else
+        task[process].tinterrequest=random_exponential(TInterRequest);
     create_event(process, RequestDisk, time, LowPriority);
   }
 }
@@ -537,7 +539,8 @@ double genrand_real2(void) {
 }
 
 double random_exponential (double y) {
-  return -y*log(genrand_real2());
+  //return -y*log(genrand_real2());
+  return y;
 }
 
 void create_task(int process, double start_time) {
@@ -555,13 +558,14 @@ void create_task(int process, double start_time) {
   double num_instructions = task[process].tcpu * 100000000;
   // What is the probability of a page fault?
   /// This can be optimized by using some combination of << >> operators
-  double prob_page_fault = pow(2, -1*( (AVAIL_RAM/MPL)/160 + 17));
+  /*double prob_page_fault = pow(2, -1*( (AVAIL_RAM/MPL)/160 + 17));
   // Total number of page faults
   double total_num_page_faults = num_instructions * (prob_page_fault);
   // So they occur, on average, every sok many instructions
   double page_fault_average_occur = num_instructions/total_num_page_faults;
   // Convert that to time, and that is tpgf
-  task[process].tpgf = page_fault_average_occur/100000000.0;
+  task[process].tpgf = page_fault_average_occur/100000000.0;*/
+  calc_next_page_fault(process);
 
   // Cache miss stuff
   //  A cache miss is what we are looking for
@@ -581,4 +585,12 @@ void create_task(int process, double start_time) {
   task[process].wait = 0;
   task[process].tbs = tbs;
   task[process].start=start_time;
+}
+
+double calc_next_page_fault(int process) {
+    double num_instructions = task[process].tcpu * 100000000;
+    double prob_page_fault = pow(2, -1*( (AVAIL_RAM/MPL)/160 + 17));
+    double total_num_page_faults = num_instructions * (prob_page_fault);
+    double page_fault_average_occur = num_instructions/total_num_page_faults;
+    task[process].tpgf = page_fault_average_occur/100000000.0;
 }
