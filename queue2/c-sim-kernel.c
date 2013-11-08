@@ -12,11 +12,13 @@
 #define MS 10
 #define NS 90
 #define NPP 6
+
 #define TCPU 0.04
 #define TQuantum 0.1
 #define TInterRequest 0.016
 #define TDiskService 0.01
 #define TThink 5
+
 #define TBS 0.4
 #define TTS 100000
 #define CS .0005
@@ -92,6 +94,7 @@ void place_in_queue(int, double, int);
 void create_event(int, int, double, int);
 void init();
 void stats();
+void stats2();
 int remove_from_queue(int, double);
 
 /* for random number generator */
@@ -148,7 +151,7 @@ void main(int argc, char *argv[])
             Process_ReleaseDisk(process, global_time);
         }
     }
-    stats();
+    stats2();
 }
 
 /********************************************************************/
@@ -223,7 +226,12 @@ void Process_ReleaseCPU(int process, double time)
     }
     else if (task[process].tquantum==0) {
         task[process].tquantum=TQuantum;
-        create_event(process, RequestCPU, time, LowPriority);
+        if(process < NS) {
+            inmemory--;
+            create_event(process, RequestMemory, time, LowPriority);
+        }
+        else
+            create_event(process, RequestCPU, time, LowPriority);
     }
     else if (task[process].tbs==0) {
         // Task should be suspended
@@ -411,6 +419,38 @@ void stats()
 
 }
 
+void stats2() {
+    int i=0;
+    /**** Update utilizations                                          ****/
+    for(i=0; i < NUM_CPU + NUM_DISK; i++) {
+        if(server[i].busy==1)
+            server[i].tser+=(TTotal-server[i].tch);
+    }
+
+    printf("System definitions: N %2d MPL %2d NPP %2d CPUs %2d Disks %2d TTotal %6.0f\n",N, MPL, NPP, NUM_CPU, NUM_DISK, TTotal);
+    //printf("m %d amat %d TIP %lf\n", M, 0, 0.0);
+    double total_cpu_util = 0.0;
+    for(i=CPU; i < CPU + NUM_CPU; i++) {
+        total_cpu_util += 100.0*server[i].tser/TTotal;
+        //printf("CPU%d: %5.2f\n", i-CPU, 100.0*server[i].tser/TTotal);
+    }
+    double total_disk_util = 0.0;
+    for(i=DISK; i < DISK + NUM_DISK; i++) {
+        total_disk_util += 100.0*server[i].tser/TTotal;
+        //printf("DISK%d: %5.2f\n", i-DISK, 100.0*server[i].tser/TTotal);
+    }
+
+    printf("RT = Response Time\n");
+    printf("CPU = CPU utilization by user' processes\n");
+    printf("DISK = Disk utilization\n");
+    printf("WAIT = Average waiting time in eq\n");
+
+    printf("RT\t\tCPU\t\tDISK\t\tWAIT\n");
+    printf("%lf\t%lf\t%lf\t%lf\n",
+        sum_response_time/finished_tasks, total_cpu_util/NUM_CPU, total_disk_util/NUM_DISK,
+        queue[MemoryQueue].ws?queue[MemoryQueue].ws/(queue[MemoryQueue].n-queue[MemoryQueue].q):0.0);
+}
+
 /*------------------------------ Random Number Generator --------------------------*/
 
 void init_genrand(unsigned long s) {
@@ -458,8 +498,7 @@ double genrand_real2(void) {
 }
 
 double random_exponential (double y) {
-    //return -y*log(genrand_real2());
-    return y;
+    return -y*log(genrand_real2());
 }
 
 void create_process(int process, double time) {
@@ -480,7 +519,7 @@ void set_next_page_fault(int process, double time) {
     double fm = pow(2, -1*p);
     // s / (number of instructions per second)
     double one_fault_per = 1/fm;
-    task[process].tpgf = random_exponential(one_fault_per * CPU_INST_TIME);
+    task[process].tpgf = random_exponential(one_fault_per * CPU_INST_TIME)/5;
 
     //printf("Prob of a page fault: %.20lf\n", fm);
     //printf("Page faults occur ever %.20lf cycles\n", one_fault_per);
