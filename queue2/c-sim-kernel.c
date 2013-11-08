@@ -9,8 +9,8 @@
 #define LOWER_MASK 0x7fffffffUL /* least significant r bits */
 
 /***** Define simulation *****/
-#define MS 20
-#define NS 30
+#define MS 10
+#define NS 90
 #define NPP 6
 #define TCPU 0.04
 #define TQuantum 0.1
@@ -19,6 +19,7 @@
 #define TThink 5
 #define TBS 0.4
 #define TTS 100000
+#define CS .0005
 
 // Total system memory
 #define TOTAL_MEM 8192
@@ -26,8 +27,9 @@
 #define OS_RAM 512
 // Available ram
 #define AVAIL_RAM (TOTAL_MEM-OS_RAM)
+#define M (AVAIL_RAM/MPL)
 
-#define CPU_INST_TIME .00000001
+#define CPU_INST_TIME 1E-8
 
 #define MemoryQueue 0
 #define CPUQueue 1
@@ -157,7 +159,7 @@ void Process_RequestMemory(int process, double time)
 {
     if (inmemory<MPL) {
         inmemory++;
-        create_event(process, RequestCPU, time, LowPriority);
+        create_event(process, RequestCPU, time+CS, LowPriority);
     }
     else place_in_queue(process, time, MemoryQueue);
 }
@@ -194,7 +196,7 @@ void Process_RequestCPU(int process, double time)
             return;
         }
     }
-    place_in_queue(process,time,CPUQueue);;
+    place_in_queue(process,time,CPUQueue);
 }
 
 void Process_ReleaseCPU(int process, double time)
@@ -217,7 +219,7 @@ void Process_ReleaseCPU(int process, double time)
         inmemory--;
         queue_head=remove_from_queue(MemoryQueue, time);
         if (queue_head!=EMPTY) 
-            create_event(queue_head, RequestMemory, time, HighPriority);
+            create_event(queue_head, RequestMemory, time+CS, HighPriority);
     }
     else if (task[process].tquantum==0) {
         task[process].tquantum=TQuantum;
@@ -259,7 +261,7 @@ void Process_RequestDisk(int process, double time)
             server[i].busy = 1;
             server[i].tch = time;
             task[process].disk = i;
-            create_event(process, ReleaseDisk, time+random_exponential(TDiskService), LowPriority);
+            create_event(process, ReleaseDisk, time+TDiskService, LowPriority);
             return;
         }
     }
@@ -376,7 +378,8 @@ void stats()
             server[i].tser+=(TTotal-server[i].tch);
     }
 
-    printf("System definitions: N %2d MPL %2d TTotal %6.0f\n",N, MPL, TTotal);
+    printf("System definitions: N %2d MPL %2d NPP %2d CPUs %2d Disks %2d TTotal %6.0f\n",N, MPL, NPP, NUM_CPU, NUM_DISK, TTotal);
+    printf("m %d amat %d TIP %lf\n", M, 0, 0.0);
     double total_cpu_util = 0.0;
     for(i=CPU; i < CPU + NUM_CPU; i++) {
         total_cpu_util += 100.0*server[i].tser/TTotal;
@@ -455,7 +458,8 @@ double genrand_real2(void) {
 }
 
 double random_exponential (double y) {
-    return -y*log(genrand_real2());
+    //return -y*log(genrand_real2());
+    return y;
 }
 
 void create_process(int process, double time) {
@@ -472,7 +476,7 @@ void create_process(int process, double time) {
 }
 
 void set_next_page_fault(int process, double time) {
-    double p = (AVAIL_RAM/MPL)/160 + 17;
+    double p = M/160.0 + 17;
     double fm = pow(2, -1*p);
     // s / (number of instructions per second)
     double one_fault_per = 1/fm;
@@ -481,4 +485,8 @@ void set_next_page_fault(int process, double time) {
     //printf("Prob of a page fault: %.20lf\n", fm);
     //printf("Page faults occur ever %.20lf cycles\n", one_fault_per);
     //printf("process[%d] will have a page fault in %lfs\n", process, time_between);
+    /*printf("p = %lf M=%d\n", p, M);
+    printf("%lf*(1/%.10lf)*%.20lf\n", task[process].tcpu, CPU_INST_TIME, fm);
+    printf("Process[%d].tcpu = %.20lf\n", process, task[process].tcpu);
+    printf("Process[%d] will have %.20lf page faults\n", process, task[process].tcpu*(1/CPU_INST_TIME)*fm);*/
 }
