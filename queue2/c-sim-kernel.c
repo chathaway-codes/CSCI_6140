@@ -13,12 +13,21 @@
 #define NS 30
 #define NPP 6
 #define TCPU 0.04
-#define TQuantum 0.4
+#define TQuantum 0.1
 #define TInterRequest 0.016
 #define TDiskService 0.01
 #define TThink 5
 #define TBS 0.4
 #define TTS 100000
+
+// Total system memory
+#define TOTAL_MEM 8192
+// OS required RAM
+#define OS_RAM 512
+// Available ram
+#define AVAIL_RAM (TOTAL_MEM-OS_RAM)
+
+#define CPU_INST_TIME .00000001
 
 #define MemoryQueue 0
 #define CPUQueue 1
@@ -88,6 +97,7 @@ unsigned long genrand_int32(void);
 double genrand_real2(void);
 
 void create_process(int process, double time);
+void set_next_page_fault(int process, double time);
 
 
 /********************************************************************/
@@ -170,12 +180,15 @@ void Process_RequestCPU(int process, double time)
 
             if (release_time>task[process].tinterrequest) 
                 release_time=task[process].tinterrequest;
+            if (release_time>task[process].tpgf)
+                release_time=task[process].tpgf;
             if (process>=NS && release_time>task[process].tbs)
                 release_time=task[process].tbs;
 
             task[process].tcpu-=release_time;
             task[process].tinterrequest-=release_time;
             task[process].tquantum-=release_time;
+            task[process].tpgf-=release_time;
             task[process].tbs-=release_time;
             create_event(process, ReleaseCPU, time+release_time, LowPriority);
             return;
@@ -227,6 +240,10 @@ void Process_ReleaseCPU(int process, double time)
             task[i].waiting = 0;
             create_event(i, RequestCPU, task[i].start, LowPriority);
         }
+    }
+    else if (task[process].tpgf==0) {
+        set_next_page_fault(process, time);
+        create_event(process, RequestDisk, time, LowPriority);
     }
     else {
         task[process].tinterrequest=random_exponential(TInterRequest);
@@ -450,4 +467,18 @@ void create_process(int process, double time) {
     task[process].cpu = -1;
     task[process].waiting = 0;
     task[process].start=time;
+
+    set_next_page_fault(process, time);
+}
+
+void set_next_page_fault(int process, double time) {
+    double p = (AVAIL_RAM/MPL)/160 + 17;
+    double fm = pow(2, -1*p);
+    // s / (number of instructions per second)
+    double one_fault_per = 1/fm;
+    task[process].tpgf = random_exponential(one_fault_per * CPU_INST_TIME);
+
+    //printf("Prob of a page fault: %.20lf\n", fm);
+    //printf("Page faults occur ever %.20lf cycles\n", one_fault_per);
+    //printf("process[%d] will have a page fault in %lfs\n", process, time_between);
 }
