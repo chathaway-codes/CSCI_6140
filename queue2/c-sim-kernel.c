@@ -13,14 +13,15 @@
 #define NS 90
 #define NPP 6
 
-#define TCPU 0.04
+#define TCPU (0.04/START_AMAT*AMAT)
 #define TQuantum 0.1
-#define TInterRequest 0.016
+#define TInterRequest (0.016/START_AMAT*AMAT)
 #define TDiskService 0.01
 #define TThink 5
+#define CPU_SWITCH .0005
 
-#define TBS 0.4
-#define TTS 100000
+#define TBS (0.4/START_AMAT*AMAT)
+#define TTS 20000
 #define CS .0005
 
 // Total system memory
@@ -31,7 +32,7 @@
 #define AVAIL_RAM (TOTAL_MEM-OS_RAM)
 #define M (AVAIL_RAM/MPL)
 
-#define CPU_INST_TIME 1E-8
+#define CPU_INST_TIME 1E-9
 
 #define MemoryQueue 0
 #define CPUQueue 1
@@ -53,9 +54,20 @@
 #define LowPriority 0
 #define HighPriority 1
 
+/********** Calculate AMAT **********/
+#define START_CACHE_MISS .02
+#define START_CACHE_MISS_COST 51.0
+#define START_AMAT (1.0+START_CACHE_MISS*(START_CACHE_MISS_COST-1.0))
+
+#define CACHE_MISS .02
+#define CACHE_MISS_COST 51.0
+#define AMAT (1.0+CACHE_MISS*(CACHE_MISS_COST-1.0))
+
+
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 
 /* for random number generator */
 static unsigned long mt[Nrnd];     /* the array for the state vector  */
@@ -83,6 +95,7 @@ struct Device {                              /***  Devices: 0 - CPU, 1 - Disk*/
 // # proc. in mem, num finished, MPL, N of monitors
 int inmemory=0, finished_tasks=0, finished_pp_tasks=0;
 int MPL=MS, N=NS;
+int cur_disk=0;
 double sum_response_time=0.0, TTotal=TTS;
 void Process_RequestMemory(int, double);
 void Process_RequestCPU(int, double);
@@ -102,6 +115,7 @@ unsigned long genrand_int32(void);
 double genrand_real2(void);
 
 void create_process(int process, double time);
+double calc_tip();
 void set_next_page_fault(int process, double time);
 
 
@@ -112,7 +126,7 @@ void set_next_page_fault(int process, double time);
 void main(int argc, char *argv[])
 {
     double global_time=0.0;
-    int process, event;
+    int process, event, counter=0;
 
     /* read in parameters */
     if (argc>1) sscanf(argv[1], "%d", &MPL);
@@ -150,8 +164,12 @@ void main(int argc, char *argv[])
         case ReleaseDisk:
             Process_ReleaseDisk(process, global_time);
         }
+
+        counter++;
+        if(counter % 100000 == 0)
+            printf("Time: %lf\n", global_time);
     }
-    stats2();
+    stats();
 }
 
 /********************************************************************/
@@ -195,7 +213,7 @@ void Process_RequestCPU(int process, double time)
             task[process].tquantum-=release_time;
             task[process].tpgf-=release_time;
             task[process].tbs-=release_time;
-            create_event(process, ReleaseCPU, time+release_time, LowPriority);
+            create_event(process, ReleaseCPU, time+release_time+CPU_SWITCH, LowPriority);
             return;
         }
     }
@@ -208,12 +226,13 @@ void Process_ReleaseCPU(int process, double time)
 
     /**** Update CPU statistics                                            ****/
     server[task[process].cpu].busy=0;
-    server[task[process].cpu].tser+=(time-server[task[process].cpu].tch);
+    server[task[process].cpu].tser+=(time-server[task[process].cpu].tch-CPU_SWITCH);
     queue_head=remove_from_queue(CPUQueue, time);
     if (queue_head!=EMPTY) 
         create_event(queue_head, RequestCPU, time, HighPriority);
 
     if (task[process].tcpu==0) {
+        assert(time > task[process].start);
         sum_response_time+=time-task[process].start;
         finished_tasks++;
 
@@ -263,8 +282,8 @@ void Process_ReleaseCPU(int process, double time)
 
 void Process_RequestDisk(int process, double time)
 {
-    int i=0;
-    for(i=DISK; i < DISK + NUM_DISK; i++) {
+    /*int i=0, j=0;
+    for(i=cur_disk, j=0; j < NUM_DISK; i = (cur_disk+j)%NUM_DISK, j++) {
         if(!server[i].busy) {
             server[i].busy = 1;
             server[i].tch = time;
@@ -272,6 +291,15 @@ void Process_RequestDisk(int process, double time)
             create_event(process, ReleaseDisk, time+TDiskService, LowPriority);
             return;
         }
+    }*/
+    int disk=cur_disk+DISK;
+    if(!server[disk].busy) {
+        server[disk].busy = 1;
+        server[disk].tch = time;
+        task[process].disk = disk;
+        cur_disk = (cur_disk+1)%NUM_DISK;
+        create_event(process, ReleaseDisk, time+TDiskService, LowPriority);
+        return;
     }
     place_in_queue(process,time,DiskQueue);
 }
@@ -387,7 +415,7 @@ void stats()
     }
 
     printf("System definitions: N %2d MPL %2d NPP %2d CPUs %2d Disks %2d TTotal %6.0f\n",N, MPL, NPP, NUM_CPU, NUM_DISK, TTotal);
-    printf("m %d amat %d TIP %lf\n", M, 0, 0.0);
+    printf("m %d amat %lf TIP %lf\n", M, AMAT, calc_tip());
     double total_cpu_util = 0.0;
     for(i=CPU; i < CPU + NUM_CPU; i++) {
         total_cpu_util += 100.0*server[i].tser/TTotal;
@@ -514,18 +542,27 @@ void create_process(int process, double time) {
     set_next_page_fault(process, time);
 }
 
+double calc_tip() {
+    double p = M/160.0 + 17;
+    double fm = pow(2, -1*p);
+
+    return (1/fm)*(1e-9)*AMAT;
+}
+
 void set_next_page_fault(int process, double time) {
     double p = M/160.0 + 17;
     double fm = pow(2, -1*p);
     // s / (number of instructions per second)
-    double one_fault_per = 1/fm;
-    task[process].tpgf = random_exponential(one_fault_per * CPU_INST_TIME)/5;
+    //double one_fault_per = 1/fm;
+    //task[process].tpgf = random_exponential(one_fault_per * CPU_INST_TIME)/5;
+    
+    task[process].tpgf = (1/fm)*(1e-9)*AMAT;
 
     //printf("Prob of a page fault: %.20lf\n", fm);
     //printf("Page faults occur ever %.20lf cycles\n", one_fault_per);
-    //printf("process[%d] will have a page fault in %lfs\n", process, time_between);
-    /*printf("p = %lf M=%d\n", p, M);
-    printf("%lf*(1/%.10lf)*%.20lf\n", task[process].tcpu, CPU_INST_TIME, fm);
+    //printf("process[%d] will have a page fault in %.20lfs\n", process, task[process].tpgf);
+    //printf("p = %lf M=%d\n", p, M);
+    /*printf("%lf*(1/%.10lf)*%.20lf\n", task[process].tcpu, CPU_INST_TIME, fm);
     printf("Process[%d].tcpu = %.20lf\n", process, task[process].tcpu);
     printf("Process[%d] will have %.20lf page faults\n", process, task[process].tcpu*(1/CPU_INST_TIME)*fm);*/
 }
