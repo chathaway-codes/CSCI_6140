@@ -9,7 +9,7 @@
 #define LOWER_MASK 0x7fffffffUL /* least significant r bits */
 
 /***** Define simulation *****/
-#define MS 10
+#define MS 20
 #define NS 90
 #define NPP 6
 
@@ -334,7 +334,7 @@ int remove_from_queue(int current_queue, double time)
         queue[current_queue].q--;
         queue[current_queue].tch=time;
         /**** Create a new event for the task at the head and move the head ****/
-        queue[current_queue].head=(queue[current_queue].head+1)%(N+NPP);
+        queue[current_queue].head=(queue[current_queue].head+1)%(NS+NPP);
         return(process);
     }
     else return(EMPTY);
@@ -351,7 +351,7 @@ void place_in_queue(int process, double time, int current_queue)
     /**** Place the process at the tail of queue and move the tail       ****/
     queue[current_queue].task[queue[current_queue].tail]=process;
     queue[current_queue].tentry[queue[current_queue].tail]=time;
-    queue[current_queue].tail=(queue[current_queue].tail+1)%(N+NPP);
+    queue[current_queue].tail=(queue[current_queue].tail+1)%(NS+NPP);
 }
 
 void create_event(int process, int event, double time, int priority)
@@ -359,7 +359,7 @@ void create_event(int process, int event, double time, int priority)
     int i, notdone=1, place=elist.tail;
 
     /**** Move all more futuristic tasks by one position                ****/
-    for(i=(elist.tail+(N+NPP)-1)%(N+NPP); notdone && elist.q>0; i=(i+(N+NPP)-1)%(N+NPP)) {
+    for(i=(elist.tail+(NS+NPP)-1)%(NS+NPP); notdone && elist.q>0; i=(i+(NS+NPP)-1)%(NS+NPP)) {
         if(elist.time[i] < time || (priority==LowPriority && elist.time[i]==time))
             notdone=0;
         else {
@@ -374,7 +374,7 @@ void create_event(int process, int event, double time, int priority)
     elist.time[place]=time;
     elist.task[place]=process;
     elist.event[place]=event;
-    elist.tail=(elist.tail+1)%(N+NPP);
+    elist.tail=(elist.tail+1)%(NS+NPP);
     elist.q++;
 }
 
