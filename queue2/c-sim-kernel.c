@@ -90,6 +90,7 @@ struct Queue {  /**** Queues: 0 - memory queue, 1 - CPU queue, 2 - Disk queue*/
 struct Device {                              /***  Devices: 0 - CPU, 1 - Disk*/
     int busy;
     double tch, tser;
+    double idle_time_1, idle_time_2;
 } server[NUM_CPU + NUM_DISK];
 
 // # proc. in mem, num finished, MPL, N of monitors
@@ -125,8 +126,8 @@ void set_next_page_fault(int process, double time);
 /* #include "header.h"                                             **/
 void main(int argc, char *argv[])
 {
-    double global_time=0.0;
-    int process, event, counter=0;
+    double global_time=0.0, last_time=0.0;
+    int process, event, counter=0, i=0;
 
     /* read in parameters */
     if (argc>1) sscanf(argv[1], "%d", &MPL);
@@ -164,6 +165,28 @@ void main(int argc, char *argv[])
         case ReleaseDisk:
             Process_ReleaseDisk(process, global_time);
         }
+
+        // If the disk queue is not empty, search for spare processors
+        //  and add time to the idle time
+        if(queue[2].q != 0) {
+            for(i=CPU; i < CPU+NUM_CPU; i++) {
+                if(!server[i].busy &&
+                    (task[process].cpu != i && event != ReleaseCPU))
+                    server[i].idle_time_1 += global_time - last_time;
+            }
+        }
+
+        // If all the queues (except eq) are empty,
+        //  record time if this processor is idle
+        if(queue[1].q == 0 && queue[2].q == 0) {
+            for(i=CPU; i < CPU+NUM_CPU; i++) {
+                if(!server[i].busy &&
+                    (task[process].cpu != i && event != ReleaseCPU))
+                    server[i].idle_time_2 += global_time - last_time;
+            }
+        }
+
+        last_time = global_time;
 
         counter++;
         if(counter % 100000 == 0)
@@ -392,6 +415,7 @@ void init()
     for(i=0; i<NUM_CPU + NUM_DISK; i++) {
         server[i].busy=0;
         server[i].tch=server[i].tser=0.0;
+        server[i].idle_time_1=server[i].idle_time_2=0;
     }
     for(i=0; i<N; i++) {
         create_process(i, random_exponential(TThink));
@@ -419,7 +443,8 @@ void stats()
     double total_cpu_util = 0.0;
     for(i=CPU; i < CPU + NUM_CPU; i++) {
         total_cpu_util += 100.0*server[i].tser/TTotal;
-        printf("CPU%d: %5.2f\n", i-CPU, 100.0*server[i].tser/TTotal);
+        printf("CPU%d: %5.2f idle %5.2f queues_empty %5.2f\n", i-CPU, 100.0*server[i].tser/TTotal,
+            100.0*server[i].idle_time_1/TTotal, 100*server[i].idle_time_2/TTotal);
     }
     double total_disk_util = 0.0;
     for(i=DISK; i < DISK + NUM_DISK; i++) {
