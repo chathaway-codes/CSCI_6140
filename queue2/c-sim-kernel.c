@@ -10,19 +10,21 @@
 
 /***** Define simulation *****/
 #define MS 20
-#define NS 90
+#define NS 100
 #define NPP 6
 
 #define TCPU (0.04/START_AMAT*AMAT)
 #define TQuantum 0.1
 #define TInterRequest (0.016/START_AMAT*AMAT)
 #define TDiskService 0.01
+// Monitor thinking time
 #define TThink 5
+// Context switching time
 #define CPU_SWITCH .0005
 
+// Time Barrier Synchronization time
 #define TBS (0.4/START_AMAT*AMAT)
 #define TTS 20000
-#define CS .0005
 
 // Total system memory
 #define TOTAL_MEM 8192
@@ -32,6 +34,7 @@
 #define AVAIL_RAM (TOTAL_MEM-OS_RAM)
 #define M (AVAIL_RAM/MPL)
 
+// CPU instruction time
 #define CPU_INST_TIME 1E-9
 
 #define MemoryQueue 0
@@ -203,7 +206,7 @@ void Process_RequestMemory(int process, double time)
 {
     if (inmemory<MPL) {
         inmemory++;
-        create_event(process, RequestCPU, time+CS, LowPriority);
+        create_event(process, RequestCPU, time, LowPriority);
     }
     else place_in_queue(process, time, MemoryQueue);
 }
@@ -264,7 +267,7 @@ void Process_ReleaseCPU(int process, double time)
         inmemory--;
         queue_head=remove_from_queue(MemoryQueue, time);
         if (queue_head!=EMPTY) 
-            create_event(queue_head, RequestMemory, time+CS, HighPriority);
+            create_event(queue_head, RequestMemory, time, HighPriority);
     }
     else if (task[process].tquantum==0) {
         task[process].tquantum=TQuantum;
@@ -571,7 +574,7 @@ double calc_tip() {
     double p = M/160.0 + 17;
     double fm = pow(2, -1*p);
 
-    return (1/fm)*(1e-9)*AMAT;
+    return (1/fm)*(CPU_INST_TIME)*AMAT;
 }
 
 void set_next_page_fault(int process, double time) {
@@ -581,7 +584,7 @@ void set_next_page_fault(int process, double time) {
     //double one_fault_per = 1/fm;
     //task[process].tpgf = random_exponential(one_fault_per * CPU_INST_TIME)/5;
     
-    task[process].tpgf = (1/fm)*(1e-9)*AMAT;
+    task[process].tpgf = (1/fm)*(CPU_INST_TIME)*AMAT;
 
     //printf("Prob of a page fault: %.20lf\n", fm);
     //printf("Page faults occur ever %.20lf cycles\n", one_fault_per);
