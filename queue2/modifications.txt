@@ -1,0 +1,15 @@
++1 disk and 1G memory
+ -> .50 response time
+ -> $320
++2 faster disks
+ -> 0.27 response time
+ -> $500
++2G memory
+ -> 2.05
+ -> $240
++3G memory
+ -> 1.11
+ -> $360
++4G memory
+ -> 0.71
+ -> $480

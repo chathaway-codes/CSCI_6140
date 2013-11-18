@@ -14,7 +14,7 @@
 #define NPP 6
 
 #define TCPU (0.04/START_AMAT*AMAT)
-#define TQuantum 0.1
+#define TQuantum .051
 #define TInterRequest (0.016/START_AMAT*AMAT)
 #define TDiskService 0.01
 // Monitor thinking time
@@ -24,7 +24,7 @@
 
 // Time Barrier Synchronization time
 #define TBS (0.4/START_AMAT*AMAT)
-#define TTS 20000
+#define TTS 1000000
 
 // Total system memory
 #define TOTAL_MEM 9216
@@ -487,7 +487,7 @@ void stats()
     
     printf("sum_response_time: %lf\n", sum_response_time);
 	
-	printf("average urgent response time %5.2f urgent processes finished %5d\n",
+	printf("average urgent response time %5.8f urgent processes finished %5d\n",
     (urgent_sum_response_time/urgent_finished_tasks), urgent_finished_tasks);
     
     printf("urgent_sum_response_time: %lf\n", urgent_sum_response_time);
