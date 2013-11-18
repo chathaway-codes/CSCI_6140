@@ -570,13 +570,13 @@ double calc_tip() {
 }
 
 void set_next_page_fault(int process, double time) {
-    double p = M/160.0 + 17;
-    double fm = pow(2, -1*p);
+    double p = M/160.0 + 17.0;
+    double fm = pow(2.0, -1*p);
     // s / (number of instructions per second)
     //double one_fault_per = 1/fm;
     //task[process].tpgf = random_exponential(one_fault_per * CPU_INST_TIME)/5;
     
-    task[process].tpgf = (1/fm)*(CPU_INST_TIME)*AMAT;
+    task[process].tpgf = random_exponential((1/fm)*(CPU_INST_TIME)*AMAT);
 
     //printf("Prob of a page fault: %.20lf\n", fm);
     //printf("Page faults occur ever %.20lf cycles\n", one_fault_per);
