@@ -231,7 +231,7 @@ void Process_RequestCPU(int process, double time)
             server[i].tch=time;
             task[process].cpu = i;
 
-            if (task[process].tcpu<task[process].tquantum) 
+            if (task[process].tcpu<=task[process].tquantum) 
                 release_time=task[process].tcpu;
             else 
                 release_time=task[process].tquantum;
@@ -488,7 +488,7 @@ void stats()
     
     printf("sum_response_time: %lf\n", sum_response_time);
 	
-	printf("average urgent response time %5.2f urgent processes finished %5d\n",
+	printf("average urgent response time %5.8f urgent processes finished %5d\n",
     (urgent_sum_response_time/urgent_finished_tasks), urgent_finished_tasks);
     
     printf("urgent_sum_response_time: %lf\n", urgent_sum_response_time);
