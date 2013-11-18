@@ -10,6 +10,6 @@ do
   for mpl in $SMPL
   do
     echo -n -e "$n\t$mpl\t"
-    ./a.out $mpl $n 12800
+    ./a.out $mpl $n 100000
   done
 done

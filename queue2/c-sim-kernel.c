@@ -203,7 +203,7 @@ int main(int argc, char *argv[])
         //if(counter % 100000 == 0)
         //    printf("Time: %lf\n", global_time);
     }
-    stats();
+    stats2();
     return 0;
 }
 
