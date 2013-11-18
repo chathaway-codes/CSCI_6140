@@ -23,7 +23,7 @@
 #define CPU_SWITCH .0005
 
 // Time Barrier Synchronization time
-#define TBS (0.4/START_AMAT*AMAT)
+#define TBS (2/START_AMAT*AMAT)
 #define TTS 20000
 
 // Total system memory
@@ -82,7 +82,7 @@ static int mti=Nrnd+1;             /* mti==Nrnd+1 means mt[Nrnd] is not initiali
 /* simulator data structurs */
 struct Task {
     double tcpu,tquantum,tinterrequest,tbs,tpgf,start;
-    int cpu,disk,waiting;
+    int cpu,disk,waiting,urgent;
 } task[NS + NPP];  /**** Job list       ****/
 struct Events {                              /**** Event list           ****/
     int head, tail, q;
@@ -100,10 +100,10 @@ struct Device {                              /***  Devices: 0 - CPU, 1 - Disk*/
 } server[NUM_CPU + NUM_DISK];
 
 // # proc. in mem, num finished, MPL, N of monitors
-int inmemory=0, finished_tasks=0, finished_pp_tasks=0;
+int inmemory=0, finished_tasks=0, finished_pp_tasks=0, urgent_finished_tasks=0;
 int MPL=MS, N=NS;
 int cur_disk=0;
-double sum_response_time=0.0, TTotal=TTS;
+double sum_response_time=0.0, urgent_sum_response_time=0.0, TTotal=TTS;
 void Process_RequestMemory(int, double);
 void Process_RequestCPU(int, double);
 void Process_ReleaseCPU(int, double);
@@ -264,6 +264,11 @@ void Process_ReleaseCPU(int process, double time)
         assert(time > task[process].start);
         sum_response_time+=time-task[process].start;
         finished_tasks++;
+		
+		if (task[process].urgent) {
+			urgent_sum_response_time+=time-task[process].start;
+			urgent_finished_tasks++;
+		}
 
         create_process(process, time+random_exponential(TThink));
         create_event(process, RequestMemory, task[process].start, LowPriority);
@@ -476,6 +481,11 @@ void stats()
     sum_response_time/(finished_tasks+finished_pp_tasks), finished_tasks, finished_pp_tasks);
     
     printf("sum_response_time: %lf\n", sum_response_time);
+	
+	printf("average urgent response time %5.2f urgent processes finished %5d\n",
+    urgent_sum_response_time/(urgent_finished_tasks), urgent_finished_tasks);
+    
+    printf("urgent_sum_response_time: %lf\n", urgent_sum_response_time);
 
 }
 
@@ -554,6 +564,12 @@ double random_exponential (double y) {
 
 void create_process(int process, double time) {
     task[process].tcpu=random_exponential(TCPU);
+	
+	if (task[process].tcpu < 0.05) {
+		task[process].urgent = 1;
+	} else {
+		task[process].urgent = 0;
+	}
     task[process].tquantum  =   TQuantum;
     task[process].tinterrequest = random_exponential(TInterRequest);
     task[process].tbs = random_exponential(TBS);
