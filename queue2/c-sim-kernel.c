@@ -192,8 +192,8 @@ void main(int argc, char *argv[])
         last_time = global_time;
 
         counter++;
-        if(counter % 100000 == 0)
-            printf("Time: %lf\n", global_time);
+        //if(counter % 100000 == 0)
+        //    printf("Time: %lf\n", global_time);
     }
     stats();
 }
@@ -281,6 +281,7 @@ void Process_ReleaseCPU(int process, double time)
     else if (task[process].tbs==0) {
         // Task should be suspended
         task[process].waiting=1;
+        sum_response_time+=time-task[process].start;
         finished_pp_tasks++;
 
         // If all the PP tasks are done, restart them
@@ -469,7 +470,7 @@ void stats()
     queue[CPUQueue].n-queue[CPUQueue].q,
     queue[DiskQueue].n-queue[DiskQueue].q);
     printf("average response time %5.2f processes finished %5d parallel tasks finished %5d\n",
-    sum_response_time/finished_tasks, finished_tasks, finished_pp_tasks);
+    sum_response_time/(finished_tasks+finished_pp_tasks), finished_tasks, finished_pp_tasks);
     
     printf("sum_response_time: %lf\n", sum_response_time);
 
@@ -477,34 +478,25 @@ void stats()
 
 void stats2() {
     int i=0;
+    double total_cpu_util=0, total_queue_1=0, total_queue_2=0;
+
     /**** Update utilizations                                          ****/
     for(i=0; i < NUM_CPU + NUM_DISK; i++) {
         if(server[i].busy==1)
             server[i].tser+=(TTotal-server[i].tch);
     }
 
-    printf("System definitions: N %2d MPL %2d NPP %2d CPUs %2d Disks %2d TTotal %6.0f\n",N, MPL, NPP, NUM_CPU, NUM_DISK, TTotal);
-    //printf("m %d amat %d TIP %lf\n", M, 0, 0.0);
-    double total_cpu_util = 0.0;
+
     for(i=CPU; i < CPU + NUM_CPU; i++) {
         total_cpu_util += 100.0*server[i].tser/TTotal;
-        //printf("CPU%d: %5.2f\n", i-CPU, 100.0*server[i].tser/TTotal);
-    }
-    double total_disk_util = 0.0;
-    for(i=DISK; i < DISK + NUM_DISK; i++) {
-        total_disk_util += 100.0*server[i].tser/TTotal;
-        //printf("DISK%d: %5.2f\n", i-DISK, 100.0*server[i].tser/TTotal);
+        total_queue_1 += 100.0*server[i].idle_time_1/TTotal;
+        total_queue_2 += 100.0*server[i].idle_time_2/TTotal;
     }
 
-    printf("RT = Response Time\n");
-    printf("CPU = CPU utilization by user' processes\n");
-    printf("DISK = Disk utilization\n");
-    printf("WAIT = Average waiting time in eq\n");
-
-    printf("RT\t\tCPU\t\tDISK\t\tWAIT\n");
-    printf("%lf\t%lf\t%lf\t%lf\n",
-        sum_response_time/finished_tasks, total_cpu_util/NUM_CPU, total_disk_util/NUM_DISK,
-        queue[MemoryQueue].ws?queue[MemoryQueue].ws/(queue[MemoryQueue].n-queue[MemoryQueue].q):0.0);
+    printf("%5.2lf\t%5.2lf\t%5.2lf\t%5.2lf\t%5.2f\n", total_cpu_util/NUM_CPU,
+      total_queue_1/NUM_CPU, total_queue_2/NUM_CPU,
+      queue[MemoryQueue].ws?queue[MemoryQueue].ws/(queue[MemoryQueue].n-queue[MemoryQueue].q):0.0,
+      sum_response_time/(finished_tasks+finished_pp_tasks));
 }
 
 /*------------------------------ Random Number Generator --------------------------*/
