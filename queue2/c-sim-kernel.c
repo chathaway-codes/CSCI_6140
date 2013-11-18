@@ -23,8 +23,8 @@
 #define CPU_SWITCH .0005
 
 // Time Barrier Synchronization time
-#define TBS (0.4/START_AMAT*AMAT)
-#define TTS 20000
+#define TBS (2.0/START_AMAT*AMAT)
+#define TTS 100000
 
 // Total system memory
 //#define TOTAL_MEM 9216
