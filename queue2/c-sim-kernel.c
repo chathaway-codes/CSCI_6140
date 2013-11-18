@@ -488,7 +488,7 @@ void stats()
     printf("sum_response_time: %lf\n", sum_response_time);
 	
 	printf("average urgent response time %5.2f urgent processes finished %5d\n",
-    urgent_sum_response_time/(urgent_finished_tasks), urgent_finished_tasks);
+    (urgent_sum_response_time/urgent_finished_tasks), urgent_finished_tasks);
     
     printf("urgent_sum_response_time: %lf\n", urgent_sum_response_time);
 
