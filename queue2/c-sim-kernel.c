@@ -14,7 +14,7 @@
 #define NPP 6
 
 #define TCPU (0.04/START_AMAT*AMAT)
-#define TQuantum .051
+#define TQuantum 0.1074
 #define TInterRequest (0.016/START_AMAT*AMAT)
 #define TDiskService 0.01
 // Monitor thinking time
@@ -24,7 +24,7 @@
 
 // Time Barrier Synchronization time
 #define TBS (0.4/START_AMAT*AMAT)
-#define TTS 1000000
+#define TTS 200000
 
 // Total system memory
 #define TOTAL_MEM 9216
@@ -200,8 +200,8 @@ void main(int argc, char *argv[])
         last_time = global_time;
 
         counter++;
-        //if(counter % 100000 == 0)
-        //    printf("Time: %lf\n", global_time);
+        if(counter % 100000 == 0)
+            printf("Time: %lf (%3.2lf\%)\n", global_time, 100*global_time/TTS);
     }
     stats();
 }
