@@ -130,7 +130,7 @@ void set_next_page_fault(int process, double time);
 /********************** File sim.c **********************************/
 /* can be separated from header.c by using include below  ***********/
 /* #include "header.h"                                             **/
-void main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
     double global_time=0.0, last_time=0.0;
     int process, event, counter=0, i=0;
@@ -204,6 +204,7 @@ void main(int argc, char *argv[])
         //    printf("Time: %lf\n", global_time);
     }
     stats();
+    return 0;
 }
 
 /********************************************************************/
