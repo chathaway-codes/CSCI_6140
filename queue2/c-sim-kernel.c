@@ -27,10 +27,10 @@
 #define TTS 20000
 
 // Total system memory
-//#define TOTAL_MEM 9216
+#define TOTAL_MEM 9216
 //#define TOTAL_MEM 10240
 //#define TOTAL_MEM 12288
-#define TOTAL_MEM 8192
+//#define TOTAL_MEM 8192
 // OS required RAM
 #define OS_RAM 512
 // Available ram
@@ -54,7 +54,7 @@
 #define NUM_CPU 4
 
 #define DISK (CPU + NUM_CPU)
-#define NUM_DISK 1
+#define NUM_DISK 2
 
 #define EMPTY -1
 #define LowPriority 0
@@ -230,7 +230,7 @@ void Process_RequestCPU(int process, double time)
             server[i].tch=time;
             task[process].cpu = i;
 
-            if (task[process].tcpu<task[process].tquantum) 
+            if (task[process].tcpu<=task[process].tquantum) 
                 release_time=task[process].tcpu;
             else 
                 release_time=task[process].tquantum;
