@@ -23,7 +23,7 @@
 #define CPU_SWITCH .0005
 
 // Time Barrier Synchronization time
-#define TBS (2/START_AMAT*AMAT)
+#define TBS (0.4/START_AMAT*AMAT)
 #define TTS 20000
 
 // Total system memory
@@ -177,7 +177,7 @@ void main(int argc, char *argv[])
         if(queue[2].q != 0) {
             for(i=CPU; i < CPU+NUM_CPU; i++) {
                 if(!server[i].busy &&
-                    (task[process].cpu != i && event != ReleaseCPU))
+                    task[process].cpu != i)
                     server[i].idle_time_1 += global_time - last_time;
             }
         }
@@ -187,10 +187,15 @@ void main(int argc, char *argv[])
         if(queue[1].q == 0 && queue[2].q == 0) {
             for(i=CPU; i < CPU+NUM_CPU; i++) {
                 if(!server[i].busy &&
-                    (task[process].cpu != i && event != ReleaseCPU))
+                    task[process].cpu != i)
                     server[i].idle_time_2 += global_time - last_time;
             }
         }
+
+        if(event == ReleaseCPU)
+          task[process].cpu = -1;
+        if(event == ReleaseDisk)
+          task[process].disk = -1;
 
         last_time = global_time;
 
