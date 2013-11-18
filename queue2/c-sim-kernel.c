@@ -27,6 +27,9 @@
 #define TTS 20000
 
 // Total system memory
+//#define TOTAL_MEM 9216
+//#define TOTAL_MEM 10240
+//#define TOTAL_MEM 12288
 #define TOTAL_MEM 8192
 // OS required RAM
 #define OS_RAM 512
